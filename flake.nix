@@ -10,21 +10,11 @@
     system = "x86_64-linux";
     pkgs = nixpkgs.legacyPackages.${system};
 
-
     pythonEnv = pkgs.python3.withPackages (ps: with ps; [
       pygobject3
       vdf
       pillow
     ]);
-
-    desktopItem = pkgs.makeDesktopItem {
-      name = "steam-patcher";
-      desktopName = "Steam Patcher";
-      exec = "steam-patcher";
-      icon = "steam";
-      comment = "NixOS Steam shortcut and icon fixer";
-      categories = [ "Utility" "System" ];
-    };
 
   in {
     packages.${system}.default = pkgs.stdenv.mkDerivation {
@@ -36,9 +26,7 @@
       nativeBuildInputs = [
         pkgs.wrapGAppsHook4
         pkgs.gobject-introspection
-        pkgs.copyDesktopItems
       ];
-
 
       buildInputs = [
         pkgs.gtk4
@@ -47,12 +35,20 @@
         pkgs.adwaita-icon-theme
       ];
 
-      desktopItems = [ desktopItem ];
-
       installPhase = ''
-        mkdir -p $out/bin
+        mkdir -p $out/bin $out/share/applications
         cp steam_patcher_gtk.py $out/bin/steam-patcher
         chmod +x $out/bin/steam-patcher
+
+        cat << EOF > $out/share/applications/steam-patcher.desktop
+[Desktop Entry]
+Type=Application
+Name=Steam Patcher
+Exec=steam-patcher
+Icon=steam
+Comment=NixOS Steam shortcut and icon fixer
+Categories=Utility;System;
+EOF
       '';
     };
 
