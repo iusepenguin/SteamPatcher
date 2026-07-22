@@ -35,17 +35,19 @@
         pkgs.adwaita-icon-theme
       ];
 
-      installPhase = ''
-        mkdir -p $out/bin $out/share/applications
+installPhase = ''
+        mkdir -p $out/bin $out/share/applications $out/share/icons/hicolor/512x512/apps
         cp steam_patcher_gtk.py $out/bin/steam-patcher
         chmod +x $out/bin/steam-patcher
+
+        cp steam-patcher.png $out/share/icons/hicolor/512x512/apps/steam-patcher.png
 
         cat << EOF > $out/share/applications/steam-patcher.desktop
 [Desktop Entry]
 Type=Application
 Name=Steam Patcher
 Exec=steam-patcher
-Icon=steam
+Icon=steam-patcher
 Comment=NixOS Steam shortcut and icon fixer
 Categories=Utility;System;
 EOF
