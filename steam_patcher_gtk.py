@@ -177,9 +177,9 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
             backup_path = f"{vdf_path}.{tag}_backup_{timestamp}.bak"
             try:
                 shutil.copy2(vdf_path, backup_path)
-                print(f"  [OK] Utworzono bezpieczną kopię zapasową: {os.path.basename(backup_path)}")
+                print(f"  [OK] Backup created: {os.path.basename(backup_path)}")
             except Exception as e:
-                print(f"  [ERROR] Nie udało się utworzyć kopii zapasowej: {e}")
+                print(f"  [ERROR] Backup failed: {e}")
 
     def _fetch_sgdb_icon(self, appname, api_key):
         headers = {
