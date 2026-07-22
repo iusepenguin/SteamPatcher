@@ -3,12 +3,12 @@ import sys
 import os
 import glob
 import shutil
-import datetime
 import threading
 import time
 import urllib.request
 import urllib.parse
 import json
+from datetime import datetime
 
 import gi
 gi.require_version('Gtk', '4.0')
@@ -57,13 +57,11 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         self.set_content(main_box)
 
-        # Header Bar
         header = Adw.HeaderBar()
         header.set_show_end_title_buttons(False)
         header.set_show_start_title_buttons(False)
         main_box.append(header)
 
-        # CRITICAL WARNING LABEL
         self.warning_label = Gtk.Label(
             label="<span foreground='#ff5555' weight='bold' size='large'>⚠️ PLEASE CLOSE STEAM BEFORE USE ⚠️</span>",
             use_markup=True
@@ -72,24 +70,18 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
         self.warning_label.set_margin_bottom(5)
         main_box.append(self.warning_label)
 
-        # EXIT BUTTON
         exit_box = Gtk.Box(halign=Gtk.Align.CENTER, margin_bottom=10)
         self.btn_exit = Gtk.Button(label="Exit patcher")
         self.btn_exit.connect("clicked", lambda x: app.quit())
         exit_box.append(self.btn_exit)
         main_box.append(exit_box)
 
-        # Pudełko zamiast PreferencesPage
         prefs_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=24)
-
-        # Clamp gwarantuje ładne wyśrodkowanie i maksymalną szerokość 600px
         prefs_clamp = Adw.Clamp(maximum_size=600, margin_bottom=20)
         prefs_clamp.set_child(prefs_box)
         main_box.append(prefs_clamp)
 
-        # ==========================================
-        # SECTION 1: Steam missing icons fixer
-        # ==========================================
+
         group_icons = Adw.PreferencesGroup(title="Steam missing icons fixer")
         prefs_box.append(group_icons)
 
@@ -107,16 +99,35 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
                 self.api_row.set_text(f.read().strip())
                 self.save_key_switch.set_active(True)
 
-        btn_box1 = Gtk.Box(margin_top=10, margin_bottom=10, margin_start=14)
+        btn_box1 = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=20,
+            margin_top=10,
+            margin_bottom=10,
+            margin_start=14,
+            margin_end=14
+        )
+
         self.btn_fetch = Gtk.Button(label="Inject SGDB Icons")
         self.btn_fetch.add_css_class("suggested-action")
+        self.btn_fetch.set_valign(Gtk.Align.CENTER)
         self.btn_fetch.connect("clicked", self.on_fetch_clicked)
         btn_box1.append(self.btn_fetch)
+
+        backup_label = Gtk.Label(
+            label="<span size='small'><i>Note: Every action automatically creates a timestamped backup of your shortcuts.vdf file.</i></span>",
+            use_markup=True,
+            wrap=True,
+            xalign=0
+        )
+        backup_label.add_css_class("dim-label")
+        backup_label.set_valign(Gtk.Align.CENTER)
+        backup_label.set_hexpand(True)
+
+        btn_box1.append(backup_label)
         group_icons.add(btn_box1)
 
-        # ==========================================
-        # SECTION 2: NixOS Steam fixes
-        # ==========================================
+
         group_fixes = Adw.PreferencesGroup(
             title="NixOS Steam fixes",
             description="SteamOS mode fixes for NixOS"
@@ -135,10 +146,7 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
 
         group_fixes.add(btn_box2)
 
-        # ==========================================
-        # LOGGING CONSOLE (Terminal Output)
-        # ==========================================
-        # Twarde wymuszenie rozciągnięcia
+
         log_frame = Gtk.Frame(margin_start=20, margin_end=20, margin_bottom=20, vexpand=True)
         log_frame.set_valign(Gtk.Align.FILL)
         main_box.append(log_frame)
@@ -154,7 +162,6 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
         scrolled_window.set_child(self.text_view)
         log_frame.set_child(scrolled_window)
 
-        # Redirect full I/O to the GTK window
         redirector = ConsoleRedirector(self.text_buffer, self.text_view)
         sys.stdout = redirector
         sys.stderr = redirector
@@ -162,7 +169,17 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
         print("[SYSTEM] Subsystems initialized. Wayland backend active.")
         print("[SYSTEM] Awaiting execution commands...\n")
 
-    # --- HELPER FUNCTIONS ---
+
+    def _backup_vdf(self, vdf_path, tag):
+        """Backup"""
+        if os.path.exists(vdf_path):
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            backup_path = f"{vdf_path}.{tag}_backup_{timestamp}.bak"
+            try:
+                shutil.copy2(vdf_path, backup_path)
+                print(f"  [OK] Utworzono bezpieczną kopię zapasową: {os.path.basename(backup_path)}")
+            except Exception as e:
+                print(f"  [ERROR] Nie udało się utworzyć kopii zapasowej: {e}")
 
     def _fetch_sgdb_icon(self, appname, api_key):
         headers = {
@@ -197,7 +214,6 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
             print(f"  [ERROR] Icon list download failed: {e}")
             return None
 
-    # --- EXECUTION THREADS ---
 
     def on_fetch_clicked(self, btn):
         api_key = self.api_row.get_text().strip()
@@ -235,9 +251,7 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
             grid_dir = os.path.join(config_dir, "grid")
             os.makedirs(grid_dir, exist_ok=True)
 
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = f"{vdf_path}.sgdb_backup_{timestamp}"
-            shutil.copy2(vdf_path, backup_path)
+            self._backup_vdf(vdf_path, "sgdb")
 
             with open(vdf_path, 'rb') as f:
                 data = vdf.binary_loads(f.read())
@@ -294,7 +308,7 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
         print("\n--- [INIT] Lutris Patch Sequence ---")
         time.sleep(0.5)
         print("[OK] Lutris vdf configuration stabilized.")
-        # Oczekuje na skrypt Lutris
+
         GLib.idle_add(self.btn_lutris.set_sensitive, True)
 
     def on_heroic_clicked(self, btn):
@@ -318,15 +332,9 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
 
         for vdf_path in vdf_paths:
             print(f"\n[*] Analyzing file: {vdf_path}")
-            timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-            backup_path = f"{vdf_path}.heroic_backup_{timestamp}"
 
-            try:
-                shutil.copy2(vdf_path, backup_path)
-                print(f"[OK] Backup created successfully.")
-            except Exception as e:
-                print(f"[ERROR] Backup failed: {e}")
-                continue
+
+            self._backup_vdf(vdf_path, "heroic")
 
             try:
                 with open(vdf_path, 'rb') as f:
