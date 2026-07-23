@@ -8,6 +8,7 @@ import time
 import urllib.request
 import urllib.parse
 import json
+import re
 from datetime import datetime
 
 import gi
@@ -306,8 +307,72 @@ class SteamPatcherWindow(Adw.ApplicationWindow):
 
     def _run_lutris_fix(self):
         print("\n--- [INIT] Lutris Patch Sequence ---")
-        time.sleep(0.5)
-        print("[OK] Lutris vdf configuration stabilized.")
+
+        steam_dir = os.path.expanduser("~/.local/share/Steam/userdata")
+        if not os.path.exists(steam_dir):
+            print(f"[ERROR] Steam directory not found ({steam_dir})")
+            GLib.idle_add(self.btn_lutris.set_sensitive, True)
+            return
+
+        vdf_paths = glob.glob(os.path.join(steam_dir, "*", "config", "shortcuts.vdf"))
+        if not vdf_paths:
+            print("[ERROR] No shortcuts.vdf files found.")
+            GLib.idle_add(self.btn_lutris.set_sensitive, True)
+            return
+
+        for vdf_path in vdf_paths:
+            print(f"\n[*] Analyzing file: {vdf_path}")
+
+            self._backup_vdf(vdf_path, "lutris")
+
+            try:
+                with open(vdf_path, 'rb') as f:
+                    data = vdf.binary_loads(f.read())
+            except Exception as e:
+                print(f"[ERROR] VDF parsing error: {e}")
+                continue
+
+            modified_count = 0
+            if 'shortcuts' in data:
+                for key, shortcut in data['shortcuts'].items():
+                    appname = shortcut.get('AppName', 'Unknown Game')
+                    exe = shortcut.get('Exe', '')
+                    launch_opts = shortcut.get('LaunchOptions', '')
+
+
+                    full_cmd = f"{exe} {launch_opts}"
+                    match = re.search(r'(lutris:rungame(?:id)?/[\w-]+)', full_cmd)
+
+                    if match:
+                        rungame_param = match.group(1)
+
+                        target_exe = f"/run/current-system/sw/bin/steam-run lutris {rungame_param}"
+                        target_opts = "unset LD_PRELOAD export GDK_BACKEND=x11"
+                        target_startdir = ""
+
+
+                        if (shortcut.get('Exe') == target_exe and
+                            shortcut.get('LaunchOptions') == target_opts and
+                            shortcut.get('StartDir', '') == target_startdir):
+                            print(f"[INFO] Shortcut '{appname}' is already optimized.")
+                            continue
+
+                        shortcut['Exe'] = target_exe
+                        shortcut['LaunchOptions'] = target_opts
+                        shortcut['StartDir'] = target_startdir
+
+                        modified_count += 1
+                        print(f"[OK] Modified Lutris shortcut for game: '{appname}'")
+
+            if modified_count > 0:
+                try:
+                    with open(vdf_path, 'wb') as f:
+                        f.write(vdf.binary_dumps(data))
+                    print(f"[OK] Success! Saved {modified_count} modifications to shortcuts.vdf")
+                except Exception as e:
+                    print(f"[ERROR] File overwrite failed: {e}")
+            else:
+                print("[INFO] No new Lutris shortcuts require modification.")
 
         GLib.idle_add(self.btn_lutris.set_sensitive, True)
 
