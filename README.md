@@ -22,7 +22,7 @@ Add the repository to your flake inputs:
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     
     steam-patcher = {
-      url = "github:minimalistFW/SteamPatcher";
+      url = "github:iusepenguin/SteamPatcher";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
